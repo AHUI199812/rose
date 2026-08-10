@@ -1,0 +1,569 @@
+﻿<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>3D Rose</title>
+  <style>
+    html,
+    body {
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      overflow: hidden;
+      background:
+        radial-gradient(circle at 50% 42%, rgba(91, 48, 58, 0.30), transparent 23%),
+        radial-gradient(circle at 70% 18%, rgba(255, 195, 216, 0.10), transparent 20%),
+        radial-gradient(circle at 28% 68%, rgba(130, 210, 155, 0.08), transparent 24%),
+        #050605;
+      font-family: "Segoe UI", "Microsoft YaHei", sans-serif;
+    }
+
+    body::before {
+      position: fixed;
+      inset: 0;
+      content: "";
+      pointer-events: none;
+      background:
+        radial-gradient(circle at 50% 45%, transparent 0 28%, rgba(0, 0, 0, 0.22) 62%, rgba(0, 0, 0, 0.62) 100%),
+        linear-gradient(115deg, rgba(255, 210, 225, 0.035), transparent 36%, rgba(180, 230, 255, 0.035));
+      z-index: 1;
+    }
+
+    #scene {
+      position: fixed;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      display: block;
+      z-index: 0;
+    }
+
+    .sparkle-layer {
+      position: fixed;
+      inset: 0;
+      z-index: 3;
+      overflow: hidden;
+      pointer-events: none;
+    }
+
+    .dust {
+      --x: 50vw;
+      --y: 50vh;
+      --size: 8px;
+      --delay: 0s;
+      --duration: 4s;
+      position: absolute;
+      left: var(--x);
+      top: var(--y);
+      width: var(--size);
+      height: var(--size);
+      transform: translate(-50%, -50%);
+      animation: dust-twinkle var(--duration) ease-in-out var(--delay) infinite;
+      opacity: 0;
+    }
+
+    .dust::before,
+    .dust::after {
+      position: absolute;
+      inset: 50% auto auto 50%;
+      content: "";
+      transform: translate(-50%, -50%);
+      background: linear-gradient(90deg, transparent, rgba(255, 250, 220, 0.98), transparent);
+      filter: drop-shadow(0 0 7px rgba(255, 218, 138, 0.95));
+    }
+
+    .dust::before {
+      width: calc(var(--size) * 3.5);
+      height: 1px;
+    }
+
+    .dust::after {
+      width: 1px;
+      height: calc(var(--size) * 3.5);
+      background: linear-gradient(180deg, transparent, rgba(255, 250, 220, 0.98), transparent);
+    }
+
+    @keyframes dust-twinkle {
+      0%, 100% {
+        opacity: 0;
+        transform: translate(-50%, -50%) scale(0.35) rotate(0deg);
+      }
+
+      42% {
+        opacity: 0.95;
+        transform: translate(calc(-50% + var(--drift-x)), calc(-50% + var(--drift-y))) scale(1) rotate(45deg);
+      }
+
+      70% {
+        opacity: 0.38;
+      }
+    }
+
+    .status {
+      position: fixed;
+      left: 18px;
+      bottom: 16px;
+      z-index: 4;
+      color: rgba(245, 244, 236, 0.84);
+      font-size: 13px;
+      line-height: 1.6;
+      text-shadow: 0 1px 10px rgba(0, 0, 0, 0.65);
+      pointer-events: none;
+    }
+
+    .status strong {
+      display: block;
+      color: #fffaf0;
+      font-size: 14px;
+      font-weight: 600;
+    }
+
+    .error {
+      position: fixed;
+      inset: 0;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      color: #fff7f7;
+      background: #0c0d0c;
+      padding: 24px;
+      text-align: center;
+      box-sizing: border-box;
+    }
+
+    .signature {
+      position: fixed;
+      top: 28px;
+      right: 36px;
+      z-index: 4;
+      pointer-events: none;
+      font-family: "Segoe Script", "Brush Script MT", "Edwardian Script ITC", "Palatino Linotype", cursive;
+      font-size: clamp(22px, 3.7vw, 42px);
+      line-height: 1;
+      letter-spacing: 0.16em;
+      color: #ffe0ea;
+      text-shadow:
+        0 0 7px rgba(255, 215, 229, 0.92),
+        0 0 20px rgba(255, 150, 185, 0.42),
+        0 2px 8px rgba(0, 0, 0, 0.72);
+      transform: rotate(-8deg);
+      opacity: 0.86;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="scene"></canvas>
+  <div class="sparkle-layer" id="sparkleLayer"></div>
+  <div class="signature">AAAAAHUI</div>
+  <div class="status" id="status">
+    <strong>Loading rose model</strong>
+    拖动旋转，滚轮缩放，双击暂停
+  </div>
+  <div class="error" id="error"></div>
+
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+        "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+      }
+    }
+  </script>
+  <script type="module">
+    import * as THREE from 'three';
+    import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+    import { FBXLoader } from 'three/addons/loaders/FBXLoader.js';
+
+    const canvas = document.getElementById('scene');
+    const statusEl = document.getElementById('status');
+    const errorEl = document.getElementById('error');
+    const sparkleLayer = document.getElementById('sparkleLayer');
+
+    const renderer = new THREE.WebGLRenderer({
+      canvas,
+      antialias: true,
+      alpha: false,
+      powerPreference: 'high-performance'
+    });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.28;
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x050605);
+    scene.fog = new THREE.FogExp2(0x050605, 0.042);
+
+    const camera = new THREE.PerspectiveCamera(38, window.innerWidth / window.innerHeight, 0.01, 100);
+    camera.position.set(0.15, 1.35, 4.7);
+
+    const controls = new OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+    controls.dampingFactor = 0.055;
+    controls.autoRotate = true;
+    controls.autoRotateSpeed = 4.6;
+    controls.zoomToCursor = true;
+    controls.minDistance = 1.7;
+    controls.maxDistance = 8;
+    controls.target.set(0, 0.6, 0);
+
+    scene.add(new THREE.HemisphereLight(0xfffaf0, 0x132316, 1.55));
+
+    const key = new THREE.DirectionalLight(0xffefe0, 5.2);
+    key.position.set(3.1, 5.2, 3.8);
+    key.castShadow = true;
+    key.shadow.mapSize.set(2048, 2048);
+    scene.add(key);
+
+    const rim = new THREE.DirectionalLight(0xc9efff, 3.15);
+    rim.position.set(-3.6, 2.65, -3.0);
+    scene.add(rim);
+
+    const warmFill = new THREE.PointLight(0xffbed0, 2.2, 6);
+    warmFill.position.set(-1.7, 1.55, 2.35);
+    scene.add(warmFill);
+
+    const petalGlow = new THREE.PointLight(0xffd7e4, 1.25, 3.5);
+    petalGlow.position.set(0.2, 1.55, 1.2);
+    scene.add(petalGlow);
+
+    const floor = new THREE.Mesh(
+      new THREE.CircleGeometry(2.3, 96),
+      new THREE.ShadowMaterial({ opacity: 0.22 })
+    );
+    floor.rotation.x = -Math.PI / 2;
+    floor.position.y = -1.22;
+    floor.receiveShadow = true;
+    scene.add(floor);
+
+    const textureLoader = new THREE.TextureLoader();
+    const textures = {
+      petals: textureLoader.load('assets/tex/Petals_Diffuse.png'),
+      petalsNormal: textureLoader.load('assets/tex/Petals_Normal.png'),
+      leaves: textureLoader.load('assets/tex/Stem_Leaves_Diffuse.png'),
+      leavesNormal: textureLoader.load('assets/tex/Stem_Leaves_Normal.png')
+    };
+
+    for (const texture of Object.values(textures)) {
+      texture.colorSpace = THREE.SRGBColorSpace;
+      texture.wrapS = THREE.RepeatWrapping;
+      texture.wrapT = THREE.RepeatWrapping;
+      texture.anisotropy = renderer.capabilities.getMaxAnisotropy();
+    }
+    textures.petalsNormal.colorSpace = THREE.NoColorSpace;
+    textures.leavesNormal.colorSpace = THREE.NoColorSpace;
+
+    const petalMaterial = new THREE.MeshPhysicalMaterial({
+      map: textures.petals,
+      normalMap: textures.petalsNormal,
+      color: 0xffa9c2,
+      roughness: 0.46,
+      metalness: 0,
+      transmission: 0.08,
+      thickness: 0.16,
+      sheen: 0.38,
+      sheenColor: new THREE.Color(0xffdbe7),
+      sheenRoughness: 0.72,
+      clearcoat: 0.28,
+      clearcoatRoughness: 0.64,
+      side: THREE.DoubleSide
+    });
+
+    const leafMaterial = new THREE.MeshPhysicalMaterial({
+      map: textures.leaves,
+      normalMap: textures.leavesNormal,
+      color: 0x2f7a34,
+      roughness: 0.68,
+      metalness: 0,
+      clearcoat: 0.2,
+      clearcoatRoughness: 0.76,
+      side: THREE.DoubleSide
+    });
+
+    const fallbackMaterial = new THREE.MeshStandardMaterial({
+      color: 0xece2cf,
+      roughness: 0.7,
+      side: THREE.DoubleSide
+    });
+
+    let rose = null;
+    let sparkleGroup = makeSparkles();
+    let trailGroup = makeLightTrails();
+    scene.add(sparkleGroup);
+    scene.add(trailGroup);
+    buildDomSparkles();
+
+    new FBXLoader().load(
+      'assets/rose.fbx',
+      object => {
+        rose = object;
+        const rawModelBox = new THREE.Box3().setFromObject(rose);
+        const rawModelHeight = Math.max(0.0001, rawModelBox.max.y - rawModelBox.min.y);
+        const meshDebug = [];
+        rose.traverse(child => {
+          if (!child.isMesh) return;
+          child.geometry.computeBoundingBox();
+          const meshSize = new THREE.Vector3();
+          const meshCenter = new THREE.Vector3();
+          child.geometry.boundingBox.getSize(meshSize);
+          child.geometry.boundingBox.getCenter(meshCenter);
+          child.localToWorld(meshCenter);
+          const verticalRatio = (meshCenter.y - rawModelBox.min.y) / rawModelHeight;
+          const meshClass = classifyRoseMesh(child, meshSize, verticalRatio);
+          meshDebug.push({
+            name: child.name,
+            material: materialName(child.material),
+            size: [meshSize.x, meshSize.y, meshSize.z],
+            y: verticalRatio,
+            class: meshClass
+          });
+          if (/backdrop/i.test(child.name || '')) {
+            child.visible = false;
+            return;
+          }
+          const meshLongest = Math.max(meshSize.x, meshSize.y, meshSize.z);
+          const meshShortest = Math.min(meshSize.x, meshSize.y, meshSize.z);
+          if (meshLongest > 80 && meshShortest < 2) {
+            child.visible = false;
+            return;
+          }
+          child.castShadow = true;
+          child.receiveShadow = true;
+          child.material = meshClass === 'petal'
+            ? petalMaterial.clone()
+            : meshClass === 'leaf'
+              ? leafMaterial.clone()
+              : fallbackMaterial.clone();
+        });
+        window.__roseMeshDebug = meshDebug;
+
+        const box = new THREE.Box3().setFromObject(rose);
+        const size = new THREE.Vector3();
+        const center = new THREE.Vector3();
+        box.getSize(size);
+        box.getCenter(center);
+        rose.position.sub(center);
+        const longest = Math.max(size.x, size.y, size.z);
+        rose.scale.setScalar(3.9 / longest);
+        rose.rotation.y = Math.PI * 0.08;
+        rose.rotation.x = -Math.PI * 0.02;
+        rose.position.y += 0.08;
+        scene.add(rose);
+
+        const fitted = new THREE.Box3().setFromObject(rose);
+        fitted.getCenter(center);
+        controls.target.copy(center);
+        controls.target.y += 0.24;
+        camera.position.set(center.x + 0.08, center.y + 0.92, center.z + 3.05);
+        controls.update();
+        statusEl.innerHTML = '<strong>3D rose ready</strong>拖动旋转，滚轮缩放';
+      },
+      event => {
+        if (event.total) {
+          const percent = Math.round((event.loaded / event.total) * 100);
+          statusEl.innerHTML = `<strong>Loading rose model</strong>${percent}%`;
+        }
+      },
+      error => {
+        errorEl.style.display = 'flex';
+        errorEl.textContent = `模型加载失败：${error?.message || error}`;
+        console.error(error);
+      }
+    );
+
+    function materialName(material) {
+      if (Array.isArray(material)) return material.map(item => item?.name || '').join(' ');
+      return material?.name || '';
+    }
+
+    function classifyRoseMesh(mesh, size, verticalRatio) {
+      const keyName = `${mesh.name || ''} ${materialName(mesh.material)}`.toLowerCase();
+      const dims = [size.x, size.y, size.z].sort((a, b) => b - a);
+      const longest = dims[0] || 0;
+      const middle = dims[1] || 0.0001;
+      const shortest = dims[2] || 0.0001;
+      const flatness = longest / shortest;
+      const elongation = longest / middle;
+
+      if (/stem|leaf|leav|branch|sepal|calyx|octuniversal1/.test(keyName)) return 'leaf';
+
+      // Some lower leaves in this FBX share the flower material. Use position and shape
+      // as a fallback so those meshes receive the green stem/leaf material.
+      if (verticalRatio < 0.58 && flatness > 18 && elongation > 1.35) return 'leaf';
+      if (verticalRatio < 0.48 && longest > middle * 1.18) return 'leaf';
+
+      if (/petal|flower|rose|bud|octuniversal2/.test(keyName)) return 'petal';
+      return verticalRatio < 0.55 ? 'leaf' : 'petal';
+    }
+
+    let rotateEnabled = true;
+    const normalRotateSpeed = 4.6;
+    const touchRotateSpeed = 0.8;
+
+    controls.addEventListener('start', () => {
+      controls.autoRotateSpeed = touchRotateSpeed;
+    });
+
+    controls.addEventListener('end', () => {
+      controls.autoRotateSpeed = normalRotateSpeed;
+    });
+
+    canvas.addEventListener('dblclick', () => {
+      rotateEnabled = !rotateEnabled;
+      controls.autoRotate = rotateEnabled;
+      statusEl.innerHTML = rotateEnabled
+        ? '<strong>3D rose ready</strong>拖动旋转，滚轮缩放'
+        : '<strong>Rotation paused</strong>双击恢复自转';
+    });
+
+    function makeSparkles() {
+      const group = new THREE.Group();
+      group.add(makeSparkleCloud(260, 0xfff4cf, 0.115, 0.78, 2.05));
+      group.add(makeSparkleCloud(130, 0xdffcff, 0.082, 1.05, 2.65));
+      group.add(makeSparkleCloud(90, 0xffffff, 0.052, 0.45, 1.35));
+      return group;
+    }
+
+    function makeLightTrails() {
+      const group = new THREE.Group();
+      const configs = [
+        { radiusX: 1.55, radiusZ: 1.05, y: 0.62, color: 0xffd6a2, opacity: 0.24, tilt: 0.34 },
+        { radiusX: 1.85, radiusZ: 1.26, y: 0.95, color: 0xfbb4cf, opacity: 0.18, tilt: -0.22 },
+        { radiusX: 1.25, radiusZ: 0.82, y: 1.24, color: 0xd9f8ff, opacity: 0.16, tilt: 0.62 }
+      ];
+
+      configs.forEach(config => {
+        const points = [];
+        for (let i = 0; i <= 160; i++) {
+          const t = i / 160 * Math.PI * 2;
+          points.push(new THREE.Vector3(
+            Math.cos(t) * config.radiusX,
+            config.y + Math.sin(t * 2.0) * 0.045,
+            Math.sin(t) * config.radiusZ
+          ));
+        }
+        const geometry = new THREE.BufferGeometry().setFromPoints(points);
+        const material = new THREE.LineBasicMaterial({
+          color: config.color,
+          transparent: true,
+          opacity: config.opacity,
+          blending: THREE.AdditiveBlending,
+          depthWrite: false
+        });
+        const line = new THREE.LineLoop(geometry, material);
+        line.rotation.x = config.tilt;
+        group.add(line);
+      });
+
+      return group;
+    }
+
+    function buildDomSparkles() {
+      const count = 42;
+      for (let i = 0; i < count; i++) {
+        const dust = document.createElement('span');
+        dust.className = 'dust';
+        const aroundRose = i < 30;
+        const x = aroundRose ? 34 + Math.random() * 34 : Math.random() * 100;
+        const y = aroundRose ? 27 + Math.random() * 48 : Math.random() * 100;
+        const size = 4 + Math.random() * 8;
+        dust.style.setProperty('--x', `${x}vw`);
+        dust.style.setProperty('--y', `${y}vh`);
+        dust.style.setProperty('--size', `${size}px`);
+        dust.style.setProperty('--delay', `${-Math.random() * 5}s`);
+        dust.style.setProperty('--duration', `${3.4 + Math.random() * 3.6}s`);
+        dust.style.setProperty('--drift-x', `${-18 + Math.random() * 36}px`);
+        dust.style.setProperty('--drift-y', `${-14 + Math.random() * 28}px`);
+        sparkleLayer.appendChild(dust);
+      }
+    }
+
+    function makeSparkleCloud(count, color, size, innerRadius, outerRadius) {
+      const geometry = new THREE.BufferGeometry();
+      const positions = new Float32Array(count * 3);
+      const phases = new Float32Array(count);
+      for (let i = 0; i < count; i++) {
+        const radius = innerRadius + Math.random() * (outerRadius - innerRadius);
+        const angle = Math.random() * Math.PI * 2;
+        const heightBias = Math.random();
+        positions[i * 3 + 0] = Math.cos(angle) * radius;
+        positions[i * 3 + 1] = -0.75 + heightBias * 2.65 + Math.sin(angle * 2.0) * 0.12;
+        positions[i * 3 + 2] = Math.sin(angle) * radius;
+        phases[i] = Math.random() * Math.PI * 2;
+      }
+      geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+      geometry.setAttribute('phase', new THREE.BufferAttribute(phases, 1));
+      const material = new THREE.PointsMaterial({
+        color,
+        size,
+        map: createSparkleTexture(),
+        transparent: true,
+        opacity: 0.95,
+        depthTest: false,
+        depthWrite: false,
+        sizeAttenuation: true,
+        blending: THREE.AdditiveBlending
+      });
+      return new THREE.Points(geometry, material);
+    }
+
+    function createSparkleTexture() {
+      const canvas = document.createElement('canvas');
+      canvas.width = 64;
+      canvas.height = 64;
+      const ctx = canvas.getContext('2d');
+      const gradient = ctx.createRadialGradient(32, 32, 0, 32, 32, 30);
+      gradient.addColorStop(0, 'rgba(255,255,255,1)');
+      gradient.addColorStop(0.28, 'rgba(255,255,245,0.9)');
+      gradient.addColorStop(1, 'rgba(255,255,255,0)');
+      ctx.fillStyle = gradient;
+      ctx.fillRect(0, 0, 64, 64);
+      ctx.strokeStyle = 'rgba(255,255,255,0.88)';
+      ctx.lineWidth = 2.4;
+      ctx.beginPath();
+      ctx.moveTo(32, 4);
+      ctx.lineTo(32, 60);
+      ctx.moveTo(4, 32);
+      ctx.lineTo(60, 32);
+      ctx.stroke();
+      const texture = new THREE.CanvasTexture(canvas);
+      texture.colorSpace = THREE.SRGBColorSpace;
+      return texture;
+    }
+
+    function animate(time) {
+      const t = time * 0.001;
+      if (rose) {
+        rose.rotation.z = Math.sin(t * 0.8) * 0.018;
+      }
+      sparkleGroup.rotation.y = t * 0.22;
+      sparkleGroup.rotation.x = Math.sin(t * 0.45) * 0.035;
+      trailGroup.rotation.y = t * 0.34;
+      trailGroup.rotation.z = Math.sin(t * 0.38) * 0.025;
+      trailGroup.children.forEach((trail, index) => {
+        trail.material.opacity = (index === 0 ? 0.18 : 0.13) + 0.10 * Math.sin(t * (1.0 + index * 0.3));
+      });
+      sparkleGroup.children.forEach((cloud, index) => {
+        cloud.rotation.y = t * (index === 0 ? 0.16 : index === 1 ? -0.22 : 0.34);
+        cloud.material.opacity = (index === 0 ? 0.72 : index === 1 ? 0.58 : 0.66)
+          + 0.22 * Math.sin(t * (1.5 + index * 0.4));
+      });
+      controls.update();
+      renderer.render(scene, camera);
+      requestAnimationFrame(animate);
+    }
+
+    window.addEventListener('resize', () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+
+    requestAnimationFrame(animate);
+  </script>
+</body>
+</html>
