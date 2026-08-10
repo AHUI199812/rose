@@ -242,10 +242,10 @@
 
     const textureLoader = new THREE.TextureLoader();
     const textures = {
-      petals: textureLoader.load('assets/tex/Petals_Diffuse.png'),
-      petalsNormal: textureLoader.load('assets/tex/Petals_Normal.png'),
-      leaves: textureLoader.load('assets/tex/Stem_Leaves_Diffuse.png'),
-      leavesNormal: textureLoader.load('assets/tex/Stem_Leaves_Normal.png')
+      petals: textureLoader.load('assets/tex/Petals_Diffuse_fast.jpg?v=2'),
+      petalsNormal: textureLoader.load('assets/tex/Petals_Normal_fast.jpg?v=2'),
+      leaves: textureLoader.load('assets/tex/Stem_Leaves_Diffuse_fast.jpg?v=2'),
+      leavesNormal: textureLoader.load('assets/tex/Stem_Leaves_Normal_fast.jpg?v=2')
     };
 
     for (const texture of Object.values(textures)) {
@@ -260,16 +260,19 @@
     const petalMaterial = new THREE.MeshPhysicalMaterial({
       map: textures.petals,
       normalMap: textures.petalsNormal,
-      color: 0xffa9c2,
-      roughness: 0.46,
+      color: 0xff7fb2,
+      emissive: 0x2a0612,
+      emissiveIntensity: 0.34,
+      roughness: 0.5,
       metalness: 0,
       transmission: 0.08,
       thickness: 0.16,
-      sheen: 0.38,
-      sheenColor: new THREE.Color(0xffdbe7),
-      sheenRoughness: 0.72,
-      clearcoat: 0.28,
-      clearcoatRoughness: 0.64,
+      normalScale: new THREE.Vector2(0.62, 0.62),
+      sheen: 0.52,
+      sheenColor: new THREE.Color(0xffc8dc),
+      sheenRoughness: 0.66,
+      clearcoat: 0.22,
+      clearcoatRoughness: 0.7,
       side: THREE.DoubleSide
     });
 
@@ -285,7 +288,9 @@
     });
 
     const fallbackMaterial = new THREE.MeshStandardMaterial({
-      color: 0xece2cf,
+      color: 0xff9fbd,
+      emissive: 0x210510,
+      emissiveIntensity: 0.26,
       roughness: 0.7,
       side: THREE.DoubleSide
     });
