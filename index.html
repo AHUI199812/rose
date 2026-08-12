@@ -241,7 +241,7 @@
     scene.add(floor);
 
     const textureLoader = new THREE.TextureLoader();
-    const cacheBust = 'v=5';
+    const cacheBust = 'v=6';
     const assetBases = ['assets', '资产'];
     function assetUrl(base, path) {
       return `${base}/${path}?${cacheBust}`;
@@ -287,14 +287,12 @@
       side: THREE.DoubleSide
     });
 
-    const leafMaterial = new THREE.MeshPhysicalMaterial({
-      map: textures.leaves,
-      normalMap: textures.leavesNormal,
-      color: 0x2f7a34,
-      roughness: 0.68,
+    const leafMaterial = new THREE.MeshStandardMaterial({
+      color: 0x5f8f63,
+      emissive: 0x183d24,
+      emissiveIntensity: 0.46,
+      roughness: 0.84,
       metalness: 0,
-      clearcoat: 0.2,
-      clearcoatRoughness: 0.76,
       side: THREE.DoubleSide
     });
 
@@ -353,14 +351,14 @@
             child.visible = false;
             return;
           }
-          child.castShadow = meshClass !== 'petal';
-          child.receiveShadow = meshClass !== 'petal';
+          child.castShadow = false;
+          child.receiveShadow = false;
           const material = meshClass === 'petal'
             ? petalMaterial.clone()
             : meshClass === 'leaf'
               ? leafMaterial.clone()
               : fallbackMaterial.clone();
-          if (meshClass === 'petal') {
+          if (meshClass === 'petal' || meshClass === 'leaf') {
             material.map = null;
             material.normalMap = null;
             material.roughnessMap = null;
