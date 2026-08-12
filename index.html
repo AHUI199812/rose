@@ -211,23 +211,23 @@
     controls.maxDistance = 8;
     controls.target.set(0, 0.6, 0);
 
-    scene.add(new THREE.HemisphereLight(0xfffaf0, 0x132316, 1.55));
+    scene.add(new THREE.HemisphereLight(0xfff3e8, 0x1a2017, 1.9));
 
-    const key = new THREE.DirectionalLight(0xffefe0, 5.2);
+    const key = new THREE.DirectionalLight(0xffeadc, 4.75);
     key.position.set(3.1, 5.2, 3.8);
     key.castShadow = true;
     key.shadow.mapSize.set(2048, 2048);
     scene.add(key);
 
-    const rim = new THREE.DirectionalLight(0xc9efff, 3.15);
+    const rim = new THREE.DirectionalLight(0xffd8e3, 1.55);
     rim.position.set(-3.6, 2.65, -3.0);
     scene.add(rim);
 
-    const warmFill = new THREE.PointLight(0xffbed0, 2.2, 6);
+    const warmFill = new THREE.PointLight(0xffbed0, 3.0, 6);
     warmFill.position.set(-1.7, 1.55, 2.35);
     scene.add(warmFill);
 
-    const petalGlow = new THREE.PointLight(0xffd7e4, 1.25, 3.5);
+    const petalGlow = new THREE.PointLight(0xffc4d8, 2.1, 3.5);
     petalGlow.position.set(0.2, 1.55, 1.2);
     scene.add(petalGlow);
 
@@ -241,11 +241,32 @@
     scene.add(floor);
 
     const textureLoader = new THREE.TextureLoader();
+    const cacheBust = 'v=4';
+    const assetBases = ['assets', '资产'];
+    function assetUrl(base, path) {
+      return `${base}/${path}?${cacheBust}`;
+    }
+    function loadTextureWithFallback(path) {
+      const texture = textureLoader.load(
+        assetUrl(assetBases[0], path),
+        undefined,
+        undefined,
+        () => textureLoader.load(
+          assetUrl(assetBases[1], path),
+          fallbackTexture => {
+            texture.image = fallbackTexture.image;
+            texture.needsUpdate = true;
+          }
+        )
+      );
+      return texture;
+    }
+
     const textures = {
-      petals: textureLoader.load('assets/tex/Petals_Diffuse_fast.jpg?v=2'),
-      petalsNormal: textureLoader.load('assets/tex/Petals_Normal_fast.jpg?v=2'),
-      leaves: textureLoader.load('assets/tex/Stem_Leaves_Diffuse_fast.jpg?v=2'),
-      leavesNormal: textureLoader.load('assets/tex/Stem_Leaves_Normal_fast.jpg?v=2')
+      petals: loadTextureWithFallback('tex/Petals_Diffuse_fast.jpg'),
+      petalsNormal: loadTextureWithFallback('tex/Petals_Normal_fast.jpg'),
+      leaves: loadTextureWithFallback('tex/Stem_Leaves_Diffuse_fast.jpg'),
+      leavesNormal: loadTextureWithFallback('tex/Stem_Leaves_Normal_fast.jpg')
     };
 
     for (const texture of Object.values(textures)) {
@@ -258,21 +279,20 @@
     textures.leavesNormal.colorSpace = THREE.NoColorSpace;
 
     const petalMaterial = new THREE.MeshPhysicalMaterial({
-      map: textures.petals,
       normalMap: textures.petalsNormal,
-      color: 0xff7fb2,
-      emissive: 0x2a0612,
-      emissiveIntensity: 0.34,
-      roughness: 0.5,
+      color: 0xffbfd1,
+      emissive: 0x7a243c,
+      emissiveIntensity: 0.42,
+      roughness: 0.58,
       metalness: 0,
-      transmission: 0.08,
-      thickness: 0.16,
-      normalScale: new THREE.Vector2(0.62, 0.62),
+      transmission: 0.03,
+      thickness: 0.08,
+      normalScale: new THREE.Vector2(0.34, 0.34),
       sheen: 0.52,
       sheenColor: new THREE.Color(0xffc8dc),
-      sheenRoughness: 0.66,
-      clearcoat: 0.22,
-      clearcoatRoughness: 0.7,
+      sheenRoughness: 0.74,
+      clearcoat: 0.14,
+      clearcoatRoughness: 0.82,
       side: THREE.DoubleSide
     });
 
@@ -288,10 +308,10 @@
     });
 
     const fallbackMaterial = new THREE.MeshStandardMaterial({
-      color: 0xff9fbd,
-      emissive: 0x210510,
-      emissiveIntensity: 0.26,
-      roughness: 0.7,
+      color: 0xffbfd1,
+      emissive: 0x6d1f36,
+      emissiveIntensity: 0.38,
+      roughness: 0.76,
       side: THREE.DoubleSide
     });
 
@@ -302,9 +322,15 @@
     scene.add(trailGroup);
     buildDomSparkles();
 
-    new FBXLoader().load(
-      'assets/rose.fbx',
-      object => {
+    const fbxLoader = new FBXLoader();
+    loadRoseModel(0);
+
+    function loadRoseModel(baseIndex) {
+      const base = assetBases[baseIndex];
+      statusEl.innerHTML = `<strong>Loading rose model</strong>正在读取 ${base}/rose.fbx`;
+      fbxLoader.load(
+        assetUrl(base, 'rose.fbx'),
+        object => {
         rose = object;
         const rawModelBox = new THREE.Box3().setFromObject(rose);
         const rawModelHeight = Math.max(0.0001, rawModelBox.max.y - rawModelBox.min.y);
@@ -336,8 +362,8 @@
             child.visible = false;
             return;
           }
-          child.castShadow = true;
-          child.receiveShadow = true;
+          child.castShadow = meshClass !== 'petal';
+          child.receiveShadow = meshClass !== 'petal';
           child.material = meshClass === 'petal'
             ? petalMaterial.clone()
             : meshClass === 'leaf'
@@ -370,15 +396,20 @@
       event => {
         if (event.total) {
           const percent = Math.round((event.loaded / event.total) * 100);
-          statusEl.innerHTML = `<strong>Loading rose model</strong>${percent}%`;
+          statusEl.innerHTML = `<strong>Loading rose model</strong>${base}/rose.fbx ${percent}%`;
         }
       },
       error => {
+        if (baseIndex + 1 < assetBases.length) {
+          loadRoseModel(baseIndex + 1);
+          return;
+        }
         errorEl.style.display = 'flex';
-        errorEl.textContent = `模型加载失败：${error?.message || error}`;
+        errorEl.textContent = `模型加载失败：请确认仓库里有 assets/rose.fbx 或 资产/rose.fbx，并且文件上传完整。`;
         console.error(error);
       }
-    );
+      );
+    }
 
     function materialName(material) {
       if (Array.isArray(material)) return material.map(item => item?.name || '').join(' ');
