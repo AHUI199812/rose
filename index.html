@@ -241,7 +241,7 @@
     scene.add(floor);
 
     const textureLoader = new THREE.TextureLoader();
-    const cacheBust = 'v=6';
+    const cacheBust = 'v=7';
     const assetBases = ['assets', '资产'];
     function assetUrl(base, path) {
       return `${base}/${path}?${cacheBust}`;
@@ -287,20 +287,13 @@
       side: THREE.DoubleSide
     });
 
-    const leafMaterial = new THREE.MeshStandardMaterial({
-      color: 0x5f8f63,
-      emissive: 0x183d24,
-      emissiveIntensity: 0.46,
-      roughness: 0.84,
-      metalness: 0,
+    const leafMaterial = new THREE.MeshBasicMaterial({
+      color: 0x5fa36a,
       side: THREE.DoubleSide
     });
 
-    const fallbackMaterial = new THREE.MeshStandardMaterial({
-      color: 0xffb8cd,
-      emissive: 0xff739a,
-      emissiveIntensity: 0.2,
-      roughness: 0.82,
+    const stemMaterial = new THREE.MeshBasicMaterial({
+      color: 0x3f7346,
       side: THREE.DoubleSide
     });
 
@@ -357,8 +350,8 @@
             ? petalMaterial.clone()
             : meshClass === 'leaf'
               ? leafMaterial.clone()
-              : fallbackMaterial.clone();
-          if (meshClass === 'petal' || meshClass === 'leaf') {
+              : stemMaterial.clone();
+          if (meshClass === 'petal' || meshClass === 'leaf' || meshClass === 'stem') {
             material.map = null;
             material.normalMap = null;
             material.roughnessMap = null;
@@ -423,7 +416,8 @@
       const flatness = longest / shortest;
       const elongation = longest / middle;
 
-      if (/stem|leaf|leav|branch|sepal|calyx|octuniversal1/.test(keyName)) return 'leaf';
+      if (/stem|branch|twig/.test(keyName)) return 'stem';
+      if (/leaf|leav|sepal|calyx|octuniversal1/.test(keyName)) return 'leaf';
 
       // Some lower leaves in this FBX share the flower material. Use position and shape
       // as a fallback so those meshes receive the green stem/leaf material.
