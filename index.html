@@ -211,7 +211,7 @@
     controls.maxDistance = 8;
     controls.target.set(0, 0.6, 0);
 
-    scene.add(new THREE.HemisphereLight(0xfff3e8, 0x1a2017, 1.9));
+    scene.add(new THREE.HemisphereLight(0xfff3e8, 0x314633, 2.35));
 
     const key = new THREE.DirectionalLight(0xffeadc, 4.75);
     key.position.set(3.1, 5.2, 3.8);
@@ -219,11 +219,11 @@
     key.shadow.mapSize.set(2048, 2048);
     scene.add(key);
 
-    const rim = new THREE.DirectionalLight(0xffd8e3, 1.55);
+    const rim = new THREE.DirectionalLight(0xd7ffe0, 2.25);
     rim.position.set(-3.6, 2.65, -3.0);
     scene.add(rim);
 
-    const warmFill = new THREE.PointLight(0xffbed0, 3.0, 6);
+    const warmFill = new THREE.PointLight(0xffbed0, 3.25, 6);
     warmFill.position.set(-1.7, 1.55, 2.35);
     scene.add(warmFill);
 
@@ -241,7 +241,7 @@
     scene.add(floor);
 
     const textureLoader = new THREE.TextureLoader();
-    const cacheBust = 'v=7';
+    const cacheBust = 'v=8';
     const assetBases = ['assets', '资产'];
     function assetUrl(base, path) {
       return `${base}/${path}?${cacheBust}`;
@@ -287,13 +287,21 @@
       side: THREE.DoubleSide
     });
 
-    const leafMaterial = new THREE.MeshBasicMaterial({
-      color: 0x5fa36a,
+    const leafMaterial = new THREE.MeshStandardMaterial({
+      color: 0x77a76c,
+      emissive: 0x315b38,
+      emissiveIntensity: 0.42,
+      roughness: 0.62,
+      metalness: 0,
       side: THREE.DoubleSide
     });
 
-    const stemMaterial = new THREE.MeshBasicMaterial({
-      color: 0x3f7346,
+    const stemMaterial = new THREE.MeshStandardMaterial({
+      color: 0x4f7b45,
+      emissive: 0x24452a,
+      emissiveIntensity: 0.48,
+      roughness: 0.7,
+      metalness: 0,
       side: THREE.DoubleSide
     });
 
@@ -344,7 +352,7 @@
             child.visible = false;
             return;
           }
-          child.castShadow = false;
+          child.castShadow = meshClass !== 'petal';
           child.receiveShadow = false;
           const material = meshClass === 'petal'
             ? petalMaterial.clone()
