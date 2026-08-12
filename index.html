@@ -241,7 +241,7 @@
     scene.add(floor);
 
     const textureLoader = new THREE.TextureLoader();
-    const cacheBust = 'v=4';
+    const cacheBust = 'v=5';
     const assetBases = ['assets', '资产'];
     function assetUrl(base, path) {
       return `${base}/${path}?${cacheBust}`;
@@ -278,21 +278,12 @@
     textures.petalsNormal.colorSpace = THREE.NoColorSpace;
     textures.leavesNormal.colorSpace = THREE.NoColorSpace;
 
-    const petalMaterial = new THREE.MeshPhysicalMaterial({
-      normalMap: textures.petalsNormal,
-      color: 0xffbfd1,
-      emissive: 0x7a243c,
-      emissiveIntensity: 0.42,
-      roughness: 0.58,
+    const petalMaterial = new THREE.MeshStandardMaterial({
+      color: 0xffb8cd,
+      emissive: 0xff739a,
+      emissiveIntensity: 0.26,
+      roughness: 0.82,
       metalness: 0,
-      transmission: 0.03,
-      thickness: 0.08,
-      normalScale: new THREE.Vector2(0.34, 0.34),
-      sheen: 0.52,
-      sheenColor: new THREE.Color(0xffc8dc),
-      sheenRoughness: 0.74,
-      clearcoat: 0.14,
-      clearcoatRoughness: 0.82,
       side: THREE.DoubleSide
     });
 
@@ -308,10 +299,10 @@
     });
 
     const fallbackMaterial = new THREE.MeshStandardMaterial({
-      color: 0xffbfd1,
-      emissive: 0x6d1f36,
-      emissiveIntensity: 0.38,
-      roughness: 0.76,
+      color: 0xffb8cd,
+      emissive: 0xff739a,
+      emissiveIntensity: 0.2,
+      roughness: 0.82,
       side: THREE.DoubleSide
     });
 
@@ -364,11 +355,20 @@
           }
           child.castShadow = meshClass !== 'petal';
           child.receiveShadow = meshClass !== 'petal';
-          child.material = meshClass === 'petal'
+          const material = meshClass === 'petal'
             ? petalMaterial.clone()
             : meshClass === 'leaf'
               ? leafMaterial.clone()
               : fallbackMaterial.clone();
+          if (meshClass === 'petal') {
+            material.map = null;
+            material.normalMap = null;
+            material.roughnessMap = null;
+            material.metalnessMap = null;
+            material.specularMap = null;
+            material.needsUpdate = true;
+          }
+          child.material = material;
         });
         window.__roseMeshDebug = meshDebug;
 
